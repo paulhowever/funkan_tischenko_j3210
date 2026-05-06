@@ -23,7 +23,10 @@ def ols_fit_predict(x: FloatArray, y: FloatArray) -> RegressionResult:
 
     xtx = x.T @ x
     xty = x.T @ y
-    beta = np.linalg.solve(xtx, xty)
+    try:
+        beta = np.linalg.solve(xtx, xty)
+    except np.linalg.LinAlgError:
+        beta = np.linalg.pinv(xtx) @ xty
     y_pred = x @ beta
     return RegressionResult(beta=beta.astype(np.float64), y_pred=y_pred.astype(np.float64))
 
@@ -41,7 +44,12 @@ def ridge_fit_predict(x: FloatArray, y: FloatArray, lam: float) -> RegressionRes
     reg = np.eye(x.shape[1], dtype=np.float64)
     reg[0, 0] = 0.0
 
-    beta = np.linalg.solve(x.T @ x + lam * reg, x.T @ y)
+    system = x.T @ x + lam * reg
+    rhs = x.T @ y
+    try:
+        beta = np.linalg.solve(system, rhs)
+    except np.linalg.LinAlgError:
+        beta = np.linalg.pinv(system) @ rhs
     y_pred = x @ beta
     return RegressionResult(beta=beta.astype(np.float64), y_pred=y_pred.astype(np.float64))
 

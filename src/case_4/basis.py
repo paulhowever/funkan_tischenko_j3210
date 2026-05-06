@@ -58,3 +58,27 @@ def trigonometric_basis(t: FloatArray, harmonics: int) -> BasisSystem:
 
 def l2_inner_product(phi_k: FloatArray, phi_l: FloatArray, t: FloatArray) -> float:
     return float(np.trapezoid(phi_k * phi_l, t))
+
+
+def check_functional_linearity(
+    x1: FloatArray,
+    x2: FloatArray,
+    phi: FloatArray,
+    t: FloatArray,
+    alpha: float = 0.7,
+    beta: float = -1.2,
+    atol: float = 1e-8,
+) -> bool:
+    left = float(np.trapezoid((alpha * x1 + beta * x2) * phi, t))
+    right = alpha * float(np.trapezoid(x1 * phi, t)) + beta * float(np.trapezoid(x2 * phi, t))
+    return bool(np.isclose(left, right, atol=atol))
+
+
+def orthonormality_matrix(basis: BasisSystem, t: FloatArray) -> FloatArray:
+    basis.validate(t)
+    m = basis.values.shape[0]
+    gram = np.zeros((m, m), dtype=np.float64)
+    for i in range(m):
+        for j in range(m):
+            gram[i, j] = l2_inner_product(basis.values[i], basis.values[j], t)
+    return gram

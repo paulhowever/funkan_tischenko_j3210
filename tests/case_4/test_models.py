@@ -18,3 +18,11 @@ def test_ridge_keeps_prediction_finite() -> None:
     result = ridge_fit_predict(x, y, lam=1.0)
     assert np.isfinite(result.beta).all()
     assert np.isfinite(result.y_pred).all()
+
+
+def test_ols_handles_singular_matrix_with_pinv_fallback() -> None:
+    x = np.array([[1.0, 1.0], [1.0, 1.0], [1.0, 1.0]])
+    y = np.array([1.0, 1.0, 1.0])
+    result = ols_fit_predict(x, y)
+    assert np.isfinite(result.beta).all()
+    assert np.isfinite(result.y_pred).all()
