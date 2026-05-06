@@ -56,8 +56,11 @@ def run_synthetic_comparison(seed: int = 42) -> dict[str, EvalMetrics]:
 def run_real_dataset_benchmark(seed: int = 42) -> dict[str, dict[str, EvalMetrics]]:
     datasets = {
         "diabetes": load_diabetes_dataset(standardize=True),
-        "california": load_california_dataset(standardize=True, max_samples=3000),
     }
+    try:
+        datasets["california"] = load_california_dataset(standardize=True, max_samples=3000)
+    except RuntimeError:
+        pass
     kernels = ['gaussian', 'epanechnikov', 'triangular']
     report: dict[str, dict[str, EvalMetrics]] = {}
     for name, ds in datasets.items():

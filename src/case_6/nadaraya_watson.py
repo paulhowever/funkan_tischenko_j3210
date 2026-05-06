@@ -48,7 +48,7 @@ def nw_predict_variable(
 
     distances = pairwise_euclidean(x_train, x_query)
     sorted_dist = np.sort(distances, axis=1)
-    h_values = sorted_dist[:, k]
+    h_values = sorted_dist[:, k - 1]
     h_values = np.where(h_values < 1e-12, 1e-12, h_values)
 
     kernel = KERNELS[kernel_name]

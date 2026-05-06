@@ -72,10 +72,8 @@ def load_california_dataset(standardize: bool = True, max_samples: int = 4000) -
         raw = fetch_california_housing()
         x = raw.data.astype(np.float64)
         y = raw.target.astype(np.float64)
-    except Exception:
-        fallback = load_diabetes()
-        x = fallback.data.astype(np.float64)
-        y = fallback.target.astype(np.float64)
+    except Exception as exc:
+        raise RuntimeError("Failed to load California Housing dataset") from exc
     if max_samples > 0 and max_samples < x.shape[0]:
         x = x[:max_samples]
         y = y[:max_samples]

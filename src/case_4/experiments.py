@@ -130,7 +130,7 @@ def sweep_functionals(
         y_test_pred = x_test @ fit.beta
         points.append(
             SweepPoint(
-                value=float(m),
+                value=float(basis.values.shape[0]),
                 train_rmse=rmse(train_ds.y, fit.y_pred),
                 test_rmse=rmse(test_ds.y, y_test_pred),
                 train_r2=r2(train_ds.y, fit.y_pred),

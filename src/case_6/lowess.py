@@ -78,7 +78,7 @@ def lowess_predict_query(
     kernel = KERNELS[kernel_name]
     distances = pairwise_euclidean(x_train, x_query)
     sorted_dist = np.sort(distances, axis=1)
-    scales = np.where(sorted_dist[:, k] < 1e-12, 1e-12, sorted_dist[:, k])
+    scales = np.where(sorted_dist[:, k - 1] < 1e-12, 1e-12, sorted_dist[:, k - 1])
     weights = kernel(distances / scales[:, None])
     denom = np.sum(weights, axis=1)
     numer = weights @ lowess_train_pred
