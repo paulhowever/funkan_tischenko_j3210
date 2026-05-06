@@ -4,11 +4,21 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from case_6.data import make_sinusoidal_dataset, train_test_split
-from case_6.lowess import lowess_fit_predict
+from case_6.data import (
+    load_california_dataset,
+    load_diabetes_dataset,
+    make_sinusoidal_dataset,
+    train_test_split,
+)
+from case_6.lowess import lowess_fit_predict, lowess_predict_query
 from case_6.metrics import mae, r2, rmse
 from case_6.nadaraya_watson import nw_predict_fixed, nw_predict_variable
-from case_6.selection import select_fixed_window, select_variable_window
+from case_6.selection import (
+    compare_kernel_impact_fixed,
+    compare_window_impact_fixed,
+    select_fixed_window,
+    select_variable_window,
+)
 
 
 @dataclass(slots=True)
@@ -34,19 +44,56 @@ def run_synthetic_comparison(seed: int = 42) -> dict[str, EvalMetrics]:
     pred_variable = nw_predict_variable(train_ds.x, train_ds.y, test_ds.x, k=int(best_k.param_value), kernel_name=best_k.kernel_name)
 
     lowess_train_pred, _ = lowess_fit_predict(train_ds.x, train_ds.y, k=10, kernel_name='triangular')
-    from case_6.distance import pairwise_euclidean
-    from case_6.kernels import KERNELS
-
-    d_test = pairwise_euclidean(train_ds.x, test_ds.x)
-    scale = np.sort(d_test, axis=1)[:, 10]
-    scale = np.where(scale < 1e-12, 1e-12, scale)
-    w_test = KERNELS['triangular'](d_test / scale[:, None])
-    numer = w_test @ lowess_train_pred
-    denom = np.sum(w_test, axis=1)
-    pred_lowess = np.where(denom > 1e-12, numer / denom, np.mean(lowess_train_pred))
+    pred_lowess = lowess_predict_query(train_ds.x, lowess_train_pred, test_ds.x, k=10, kernel_name='triangular')
 
     return {
         'nw_fixed': evaluate_predictions(test_ds.y, pred_fixed),
         'nw_variable': evaluate_predictions(test_ds.y, pred_variable),
         'lowess': evaluate_predictions(test_ds.y, pred_lowess),
     }
+
+
+def run_real_dataset_benchmark(seed: int = 42) -> dict[str, dict[str, EvalMetrics]]:
+    datasets = {
+        "diabetes": load_diabetes_dataset(standardize=True),
+        "california": load_california_dataset(standardize=True, max_samples=3000),
+    }
+    kernels = ['gaussian', 'epanechnikov', 'triangular']
+    report: dict[str, dict[str, EvalMetrics]] = {}
+    for name, ds in datasets.items():
+        train_ds, test_ds = train_test_split(ds, test_size=0.25, seed=seed)
+        best_h = select_fixed_window(train_ds.x, train_ds.y, hs=[0.3, 0.5, 0.8, 1.2], kernels=kernels)
+        best_k = select_variable_window(train_ds.x, train_ds.y, ks=[5, 10, 15, 20], kernels=kernels)
+        pred_fixed = nw_predict_fixed(train_ds.x, train_ds.y, test_ds.x, h=best_h.param_value, kernel_name=best_h.kernel_name)
+        pred_variable = nw_predict_variable(train_ds.x, train_ds.y, test_ds.x, k=int(best_k.param_value), kernel_name=best_k.kernel_name)
+        lowess_train_pred, _ = lowess_fit_predict(train_ds.x, train_ds.y, k=10, kernel_name='triangular')
+        pred_lowess = lowess_predict_query(train_ds.x, lowess_train_pred, test_ds.x, k=10, kernel_name='triangular')
+        report[name] = {
+            "nw_fixed": evaluate_predictions(test_ds.y, pred_fixed),
+            "nw_variable": evaluate_predictions(test_ds.y, pred_variable),
+            "lowess": evaluate_predictions(test_ds.y, pred_lowess),
+        }
+    return report
+
+
+def kernel_vs_window_impact(seed: int = 42) -> dict[str, list[float]]:
+    ds = make_sinusoidal_dataset(n_samples=180, noise_std=0.12, seed=seed)
+    kernel_scores = compare_kernel_impact_fixed(ds.x, ds.y, h=0.3, kernels=['gaussian', 'epanechnikov', 'triangular', 'quartic'])
+    window_scores = compare_window_impact_fixed(ds.x, ds.y, hs=[0.1, 0.2, 0.3, 0.5, 0.8], kernel_name='triangular')
+    return {
+        "kernel_rmse": [item.score_rmse for item in kernel_scores],
+        "window_rmse": [item.score_rmse for item in window_scores],
+    }
+
+
+def lowess_outlier_threshold_study(seed: int = 42) -> list[tuple[float, float, float]]:
+    levels = [0.0, 0.03, 0.06, 0.1, 0.15, 0.2]
+    results: list[tuple[float, float, float]] = []
+    for level in levels:
+        ds = make_sinusoidal_dataset(n_samples=220, noise_std=0.12, outlier_fraction=level, seed=seed)
+        train_ds, test_ds = train_test_split(ds, test_size=0.25, seed=seed)
+        pred_nw = nw_predict_fixed(train_ds.x, train_ds.y, test_ds.x, h=0.3, kernel_name='triangular')
+        lowess_train_pred, _ = lowess_fit_predict(train_ds.x, train_ds.y, k=10, kernel_name='triangular')
+        pred_lowess = lowess_predict_query(train_ds.x, lowess_train_pred, test_ds.x, k=10, kernel_name='triangular')
+        results.append((level, rmse(test_ds.y, pred_nw), rmse(test_ds.y, pred_lowess)))
+    return results

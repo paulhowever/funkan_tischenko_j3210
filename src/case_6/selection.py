@@ -59,3 +59,37 @@ def select_variable_window(x: FloatArray, y: FloatArray, ks: list[int], kernels:
     if best is None:
         raise RuntimeError('no candidates provided')
     return best
+
+
+def compare_kernel_impact_fixed(
+    x: FloatArray,
+    y: FloatArray,
+    h: float,
+    kernels: list[str],
+) -> list[SelectionResult]:
+    return [
+        SelectionResult(
+            kernel_name=kernel_name,
+            param_name='h',
+            param_value=h,
+            score_rmse=loo_score_fixed(x, y, h, kernel_name),
+        )
+        for kernel_name in kernels
+    ]
+
+
+def compare_window_impact_fixed(
+    x: FloatArray,
+    y: FloatArray,
+    hs: list[float],
+    kernel_name: str,
+) -> list[SelectionResult]:
+    return [
+        SelectionResult(
+            kernel_name=kernel_name,
+            param_name='h',
+            param_value=h,
+            score_rmse=loo_score_fixed(x, y, h, kernel_name),
+        )
+        for h in hs
+    ]

@@ -1,5 +1,10 @@
 from case_6.data import make_sinusoidal_dataset
-from case_6.experiments import run_synthetic_comparison
+from case_6.experiments import (
+    kernel_vs_window_impact,
+    lowess_outlier_threshold_study,
+    run_real_dataset_benchmark,
+    run_synthetic_comparison,
+)
 from case_6.selection import select_fixed_window, select_variable_window
 
 
@@ -21,3 +26,17 @@ def test_synthetic_comparison_runs() -> None:
         assert metric.mae >= 0.0
         assert metric.rmse >= 0.0
         assert -1.0 <= metric.r2 <= 1.0
+
+
+def test_impact_and_outlier_studies_run() -> None:
+    impact = kernel_vs_window_impact(seed=3)
+    threshold = lowess_outlier_threshold_study(seed=3)
+    assert len(impact["kernel_rmse"]) >= 3
+    assert len(impact["window_rmse"]) >= 3
+    assert len(threshold) >= 3
+
+
+def test_real_dataset_benchmark_runs() -> None:
+    report = run_real_dataset_benchmark(seed=2)
+    assert "diabetes" in report
+    assert "california" in report

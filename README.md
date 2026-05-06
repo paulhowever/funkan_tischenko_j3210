@@ -32,3 +32,8 @@ black --check .
 mypy src
 pytest
 ```
+
+## Отчеты
+
+- `notebooks/case_4/report_case_4.ipynb` — полный экспериментальный отчет по функциональной регрессии.
+- `notebooks/case_6/report_case_6.ipynb` — полный экспериментальный отчет по метрическим методам.

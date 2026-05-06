@@ -61,3 +61,28 @@ def lowess_fit_predict(
         prev_pred = y_hat
 
     return prev_pred.astype(np.float64), gamma.astype(np.float64)
+
+
+def lowess_predict_query(
+    x_train: FloatArray,
+    lowess_train_pred: FloatArray,
+    x_query: FloatArray,
+    k: int,
+    kernel_name: str,
+) -> FloatArray:
+    if kernel_name not in KERNELS:
+        raise ValueError(f'unknown kernel: {kernel_name}')
+    if k < 1 or k >= x_train.shape[0]:
+        raise ValueError('k must be in [1, n_train - 1]')
+
+    kernel = KERNELS[kernel_name]
+    distances = pairwise_euclidean(x_train, x_query)
+    sorted_dist = np.sort(distances, axis=1)
+    scales = np.where(sorted_dist[:, k] < 1e-12, 1e-12, sorted_dist[:, k])
+    weights = kernel(distances / scales[:, None])
+    denom = np.sum(weights, axis=1)
+    numer = weights @ lowess_train_pred
+    fallback = np.full(x_query.shape[0], np.mean(lowess_train_pred), dtype=np.float64)
+    mask = denom > 1e-12
+    fallback[mask] = numer[mask] / denom[mask]
+    return fallback.astype(np.float64)

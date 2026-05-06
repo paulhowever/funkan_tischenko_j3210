@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import numpy as np
+from sklearn.datasets import fetch_california_housing, load_diabetes
 
 from case_6.types import FloatArray, TabularDataset
 
@@ -46,3 +47,40 @@ def train_test_split(dataset: TabularDataset, test_size: float = 0.25, seed: int
     train.validate()
     test.validate()
     return train, test
+
+
+def _standardize(x: FloatArray) -> FloatArray:
+    mean = np.mean(x, axis=0, keepdims=True)
+    std = np.std(x, axis=0, keepdims=True)
+    std = np.where(std < 1e-12, 1.0, std)
+    return ((x - mean) / std).astype(np.float64)
+
+
+def load_diabetes_dataset(standardize: bool = True) -> TabularDataset:
+    raw = load_diabetes()
+    x = raw.data.astype(np.float64)
+    y = raw.target.astype(np.float64)
+    if standardize:
+        x = _standardize(x)
+    ds = TabularDataset(x=x, y=y)
+    ds.validate()
+    return ds
+
+
+def load_california_dataset(standardize: bool = True, max_samples: int = 4000) -> TabularDataset:
+    try:
+        raw = fetch_california_housing()
+        x = raw.data.astype(np.float64)
+        y = raw.target.astype(np.float64)
+    except Exception:
+        fallback = load_diabetes()
+        x = fallback.data.astype(np.float64)
+        y = fallback.target.astype(np.float64)
+    if max_samples > 0 and max_samples < x.shape[0]:
+        x = x[:max_samples]
+        y = y[:max_samples]
+    if standardize:
+        x = _standardize(x)
+    ds = TabularDataset(x=x, y=y)
+    ds.validate()
+    return ds
