@@ -46,6 +46,13 @@ class SweepPoint:
     test_r2: float
 
 
+@dataclass(slots=True)
+class CoefficientStability:
+    mean_std: float
+    max_std: float
+    beta_matrix: np.ndarray
+
+
 def evaluate_single_setup(
     basis: BasisSystem,
     lambda_value: float,
@@ -238,4 +245,27 @@ def evaluate_piecewise_dataset(config: PiecewiseConfig = PiecewiseConfig()) -> E
         ),
         beta=fit.beta,
         w_t=reconstruct_weight_function(fit.beta, basis),
+    )
+
+
+def coefficient_stability_study(
+    seeds: list[int],
+    lambda_value: float = 0.01,
+    harmonics: int = 4,
+    n_samples: int = 250,
+    n_grid: int = 180,
+) -> CoefficientStability:
+    beta_values: list[np.ndarray] = []
+    for seed in seeds:
+        config = SyntheticConfig(n_samples=n_samples, n_grid=n_grid, seed=seed)
+        t = create_uniform_grid(n_grid, config.t_start, config.t_end)
+        basis = trigonometric_basis(t, harmonics=harmonics)
+        result = evaluate_single_setup(basis=basis, lambda_value=lambda_value, config=config, split_seed=seed)
+        beta_values.append(result.beta)
+    beta_matrix = np.vstack(beta_values)
+    std = np.std(beta_matrix, axis=0)
+    return CoefficientStability(
+        mean_std=float(np.mean(std)),
+        max_std=float(np.max(std)),
+        beta_matrix=beta_matrix,
     )

@@ -8,6 +8,7 @@ from case_4.basis import (
 )
 from case_4.data import PiecewiseConfig, SyntheticConfig, make_piecewise_dataset, make_synthetic_dataset, train_test_split
 from case_4.experiments import (
+    coefficient_stability_study,
     compare_bases,
     evaluate_piecewise_dataset,
     evaluate_single_setup,
@@ -28,6 +29,7 @@ __all__ = [
     'add_intercept',
     'build_feature_matrix',
     'check_functional_linearity',
+    'coefficient_stability_study',
     'compare_bases',
     'evaluate_piecewise_dataset',
     'evaluate_single_setup',

@@ -3,6 +3,7 @@ import numpy as np
 from case_4.basis import trigonometric_basis
 from case_4.data import SyntheticConfig
 from case_4.experiments import (
+    coefficient_stability_study,
     evaluate_single_setup,
     grid_stability_study,
     noise_stability_study,
@@ -42,3 +43,10 @@ def test_stability_studies_return_points() -> None:
     grid_points = grid_stability_study([64, 128], seed=5)
     assert len(noise_points) == 3
     assert len(grid_points) == 2
+
+
+def test_coefficient_stability_returns_valid_stats() -> None:
+    stats = coefficient_stability_study([1, 2, 3], lambda_value=0.01, harmonics=3, n_samples=120, n_grid=120)
+    assert stats.beta_matrix.shape[0] == 3
+    assert stats.mean_std >= 0.0
+    assert stats.max_std >= 0.0

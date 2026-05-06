@@ -97,3 +97,67 @@ def lowess_outlier_threshold_study(seed: int = 42) -> list[tuple[float, float, f
         pred_lowess = lowess_predict_query(train_ds.x, lowess_train_pred, test_ds.x, k=10, kernel_name='triangular')
         results.append((level, rmse(test_ds.y, pred_nw), rmse(test_ds.y, pred_lowess)))
     return results
+
+
+def synthetic_curve_artifacts(
+    h_values: list[float],
+    k_values: list[int],
+    seed: int = 42,
+) -> dict[str, np.ndarray]:
+    ds = make_sinusoidal_dataset(n_samples=220, noise_std=0.12, seed=seed)
+    train_ds, test_ds = train_test_split(ds, test_size=0.25, seed=seed)
+    x_line = np.linspace(-3.0, 3.0, 240, dtype=np.float64)[:, None]
+    y_true_line = np.sin(x_line[:, 0])
+
+    pred_by_h: list[np.ndarray] = []
+    for h in h_values:
+        pred_by_h.append(nw_predict_fixed(train_ds.x, train_ds.y, x_line, h=h, kernel_name='triangular'))
+
+    rmse_by_h = np.array(
+        [rmse(test_ds.y, nw_predict_fixed(train_ds.x, train_ds.y, test_ds.x, h=h, kernel_name='triangular')) for h in h_values],
+        dtype=np.float64,
+    )
+    rmse_by_k = np.array(
+        [rmse(test_ds.y, nw_predict_variable(train_ds.x, train_ds.y, test_ds.x, k=k, kernel_name='triangular')) for k in k_values],
+        dtype=np.float64,
+    )
+    return {
+        "x_train": train_ds.x[:, 0].astype(np.float64),
+        "y_train": train_ds.y.astype(np.float64),
+        "x_line": x_line[:, 0].astype(np.float64),
+        "y_true_line": y_true_line.astype(np.float64),
+        "pred_by_h": np.vstack(pred_by_h).astype(np.float64),
+        "rmse_by_h": rmse_by_h,
+        "rmse_by_k": rmse_by_k,
+    }
+
+
+def lowess_diagnostic_artifacts(seed: int = 42) -> dict[str, np.ndarray]:
+    ds = make_sinusoidal_dataset(n_samples=220, noise_std=0.12, outlier_fraction=0.1, seed=seed)
+    train_ds, test_ds = train_test_split(ds, test_size=0.25, seed=seed)
+    pred_nw = nw_predict_fixed(train_ds.x, train_ds.y, test_ds.x, h=0.3, kernel_name='triangular')
+    lowess_train_pred, gamma = lowess_fit_predict(train_ds.x, train_ds.y, k=10, kernel_name='triangular')
+    pred_lowess = lowess_predict_query(train_ds.x, lowess_train_pred, test_ds.x, k=10, kernel_name='triangular')
+
+    return {
+        "gamma": gamma.astype(np.float64),
+        "x_train": train_ds.x[:, 0].astype(np.float64),
+        "y_train": train_ds.y.astype(np.float64),
+        "lowess_train_pred": lowess_train_pred.astype(np.float64),
+        "test_err_nw": (test_ds.y - pred_nw).astype(np.float64),
+        "test_err_lowess": (test_ds.y - pred_lowess).astype(np.float64),
+    }
+
+
+def variable_vs_fixed_win_map(
+    noise_levels: list[float],
+    seed: int = 42,
+) -> list[tuple[float, float, float]]:
+    rows: list[tuple[float, float, float]] = []
+    for noise in noise_levels:
+        ds = make_sinusoidal_dataset(n_samples=220, noise_std=noise, outlier_fraction=0.05, seed=seed)
+        train_ds, test_ds = train_test_split(ds, test_size=0.25, seed=seed)
+        pred_fixed = nw_predict_fixed(train_ds.x, train_ds.y, test_ds.x, h=0.3, kernel_name='triangular')
+        pred_variable = nw_predict_variable(train_ds.x, train_ds.y, test_ds.x, k=10, kernel_name='triangular')
+        rows.append((noise, rmse(test_ds.y, pred_fixed), rmse(test_ds.y, pred_variable)))
+    return rows

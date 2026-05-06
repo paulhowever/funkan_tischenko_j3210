@@ -1,9 +1,12 @@
 from case_6.data import make_sinusoidal_dataset
 from case_6.experiments import (
+    lowess_diagnostic_artifacts,
     kernel_vs_window_impact,
     lowess_outlier_threshold_study,
     run_real_dataset_benchmark,
     run_synthetic_comparison,
+    synthetic_curve_artifacts,
+    variable_vs_fixed_win_map,
 )
 from case_6.selection import select_fixed_window, select_variable_window
 
@@ -40,3 +43,22 @@ def test_real_dataset_benchmark_runs() -> None:
     report = run_real_dataset_benchmark(seed=2)
     assert "diabetes" in report
     assert "california" in report
+
+
+def test_synthetic_curve_artifacts_shapes() -> None:
+    out = synthetic_curve_artifacts([0.1, 0.3], [5, 10], seed=4)
+    assert out["pred_by_h"].shape[0] == 2
+    assert out["rmse_by_h"].shape == (2,)
+    assert out["rmse_by_k"].shape == (2,)
+
+
+def test_lowess_diagnostic_artifacts_shapes() -> None:
+    out = lowess_diagnostic_artifacts(seed=4)
+    assert out["gamma"].ndim == 1
+    assert out["test_err_nw"].ndim == 1
+    assert out["test_err_lowess"].ndim == 1
+
+
+def test_variable_vs_fixed_win_map_runs() -> None:
+    rows = variable_vs_fixed_win_map([0.05, 0.1], seed=4)
+    assert len(rows) == 2

@@ -2,9 +2,12 @@ from case_6.data import load_california_dataset, load_diabetes_dataset, make_sin
 from case_6.experiments import (
     evaluate_predictions,
     kernel_vs_window_impact,
+    lowess_diagnostic_artifacts,
     lowess_outlier_threshold_study,
     run_real_dataset_benchmark,
     run_synthetic_comparison,
+    synthetic_curve_artifacts,
+    variable_vs_fixed_win_map,
 )
 from case_6.kernels import KERNELS
 from case_6.lowess import lowess_fit_predict, lowess_predict_query
@@ -29,6 +32,7 @@ __all__ = [
     'compare_window_impact_fixed',
     'evaluate_predictions',
     'kernel_vs_window_impact',
+    'lowess_diagnostic_artifacts',
     'load_california_dataset',
     'load_diabetes_dataset',
     'loo_score_fixed',
@@ -47,5 +51,7 @@ __all__ = [
     'run_synthetic_comparison',
     'select_fixed_window',
     'select_variable_window',
+    'synthetic_curve_artifacts',
     'train_test_split',
+    'variable_vs_fixed_win_map',
 ]
