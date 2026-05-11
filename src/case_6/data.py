@@ -100,6 +100,12 @@ def train_test_split(
 
 def load_real_datasets(seed: int = 42) -> dict[str, tuple[TabularDataset, TabularDataset]]:
     """Load Diabetes and California Housing, scale features, split 75/25."""
+    import os
+    try:
+        import certifi
+        os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    except Exception:
+        pass
     from sklearn.datasets import fetch_california_housing, load_diabetes
     from sklearn.preprocessing import StandardScaler
 
