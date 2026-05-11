@@ -1,0 +1,2 @@
+check,lhs,rhs,abs_diff
+L(phi1+phi2) vs L(phi1)+L(phi2),0.111703,0.111703,0.0

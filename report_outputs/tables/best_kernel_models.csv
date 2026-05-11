@@ -1,0 +1,5 @@
+kernel,param,loo_rmse,test_rmse,test_mae,test_r2
+gaussian,0.25,0.81844,0.53878,0.26313,0.69147
+epanechnikov,0.5,0.81616,0.54472,0.26602,0.68463
+triangular,0.5,0.81996,0.54539,0.26856,0.68385
+quartic,0.8,0.81739,0.53516,0.25874,0.6956

@@ -1,0 +1,8 @@
+scenario,mae,rmse,r2
+diabetes/nw_fixed,47.62951,57.90105,0.45983
+diabetes/nw_variable,46.4245,58.2093,0.45406
+diabetes/lowess,48.68017,59.62426,0.4272
+california/nw_fixed,0.48825,0.67901,0.64366
+california/nw_variable,0.49114,0.67405,0.64886
+california/lowess,0.50832,0.71963,0.59976
+synthetic/best_fixed,0.26602,0.54472,0.68463

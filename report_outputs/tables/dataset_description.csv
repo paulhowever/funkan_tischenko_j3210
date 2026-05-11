@@ -1,0 +1,5 @@
+dataset,n_samples,n_features,target,notes
+case4_functional_synthetic,280,320,scalar,"x(t) на [0,1] с шумом"
+case6_sinusoidal,240,1,scalar,"sin(x)+noise, доля выбросов 8%"
+diabetes,442,10,scalar,стандартизованные признаки
+california_housing,3000,8,scalar,стандартизованный sub-sample 3000
