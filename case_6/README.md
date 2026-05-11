@@ -1,24 +1,20 @@
 # case_6
 
-Реализация метрических методов регрессии (Nadaraya-Watson и LOWESS).
+Метрические методы регрессии: Надарая–Ватсон (fixed/variable) и LOWESS.
 
-- Условие: `../docs/case_6/кейс 6.pdf`
-- Основной код: `../src/case_6`
-- Тесты: `../tests/case_6`
-- Ноутбуки: `../notebooks/case_6`
+- Условие: `../docs/case_6/кейс 6.pdf`
+- Отчёт: [`REPORT.md`](REPORT.md)
+- Код: `../src/case_6`
+- Тесты: `../tests/case_6` (20 unit-тестов)
+- Демо-ноутбук: `../notebooks/case_6/case_6_demo.ipynb`
+- Артефакты отчёта: `../report_outputs/{figures,tables,latex_fragments}`
 
-## Что уже есть
-
-- ядра: `gaussian`, `triangular`, `epanechnikov`, `quartic`
-- Nadaraya-Watson с фиксированным окном
-- Nadaraya-Watson с переменным окном (`k` соседей)
-- робастный LOWESS с итеративным перевзвешиванием
-- LOO-подбор параметров `h`, `k` и ядра
-- синтетический сценарий сравнения моделей
-- метрики `MAE`, `RMSE`, `R2`
-
-## Быстрый запуск
+## Запуск
 
 ```bash
-python3 -m pytest tests/case_6 -q
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+python3 -m pytest tests/case_6 -q                    # тесты
+PYTHONPATH=src python3 generate_report_assets.py     # перегенерация figures/tables
+python3 -m jupyter notebook notebooks/case_6/case_6_demo.ipynb
 ```
