@@ -4,8 +4,10 @@ from dataclasses import dataclass
 
 import numpy as np
 
+from case_6.distance import pairwise_euclidean
+from case_6.kernels import KERNELS
+from case_6.lowess import lowess_fit_predict, lowess_predict_query
 from case_6.metrics import rmse
-from case_6.nadaraya_watson import nw_predict_fixed, nw_predict_variable
 from case_6.types import FloatArray
 
 
@@ -17,45 +19,98 @@ class SelectionResult:
     score_rmse: float
 
 
+def _loo_predictions(weights: FloatArray, y: FloatArray) -> FloatArray:
+    """Given a square (n,n) kernel weight matrix, return LOO NW predictions."""
+    w = weights.copy()
+    np.fill_diagonal(w, 0.0)
+    denom = np.sum(w, axis=1)
+    numer = w @ y
+    preds = np.full(y.shape[0], float(np.mean(y)), dtype=np.float64)
+    mask = denom > 1e-12
+    preds[mask] = numer[mask] / denom[mask]
+    return preds
+
+
 def loo_score_fixed(x: FloatArray, y: FloatArray, h: float, kernel_name: str) -> float:
-    preds = np.zeros_like(y)
-    for i in range(x.shape[0]):
-        mask = np.ones(x.shape[0], dtype=bool)
-        mask[i] = False
-        preds[i] = nw_predict_fixed(x[mask], y[mask], x[i : i + 1], h, kernel_name)[0]
+    if h <= 0:
+        raise ValueError('h must be > 0')
+    if kernel_name not in KERNELS:
+        raise ValueError(f'unknown kernel: {kernel_name}')
+    d = pairwise_euclidean(x, x)
+    w = KERNELS[kernel_name](d / h)
+    preds = _loo_predictions(w, y)
     return rmse(y, preds)
 
 
 def loo_score_variable(x: FloatArray, y: FloatArray, k: int, kernel_name: str) -> float:
-    preds = np.zeros_like(y)
-    for i in range(x.shape[0]):
-        mask = np.ones(x.shape[0], dtype=bool)
-        mask[i] = False
-        preds[i] = nw_predict_variable(x[mask], y[mask], x[i : i + 1], k, kernel_name)[0]
+    if k < 1 or k >= x.shape[0]:
+        raise ValueError('k must be in [1, n-1]')
+    if kernel_name not in KERNELS:
+        raise ValueError(f'unknown kernel: {kernel_name}')
+    d = pairwise_euclidean(x, x)
+    d_for_h = d.copy()
+    np.fill_diagonal(d_for_h, np.inf)
+    h_values = np.sort(d_for_h, axis=1)[:, k - 1]
+    h_values = np.where(h_values < 1e-12, 1e-12, h_values)
+    w = KERNELS[kernel_name](d / h_values[:, None])
+    preds = _loo_predictions(w, y)
     return rmse(y, preds)
 
 
-def select_fixed_window(x: FloatArray, y: FloatArray, hs: list[float], kernels: list[str]) -> SelectionResult:
+def loo_score_lowess(x: FloatArray, y: FloatArray, k: int, kernel_name: str) -> float:
+    """LOO RMSE for LOWESS: fit on n-1 points, predict the held-out one."""
+    n = x.shape[0]
+    preds = np.zeros(n, dtype=np.float64)
+    for i in range(n):
+        mask = np.ones(n, dtype=bool)
+        mask[i] = False
+        _, gamma = lowess_fit_predict(x[mask], y[mask], k=k, kernel_name=kernel_name)
+        preds[i] = lowess_predict_query(
+            x[mask], y[mask], gamma, x[i : i + 1], k=k, kernel_name=kernel_name
+        )[0]
+    return rmse(y, preds)
+
+
+def select_fixed_window(
+    x: FloatArray, y: FloatArray, hs: list[float], kernels: list[str]
+) -> SelectionResult:
     best: SelectionResult | None = None
     for kernel_name in kernels:
         for h in hs:
             score = loo_score_fixed(x, y, h, kernel_name)
-            candidate = SelectionResult(kernel_name=kernel_name, param_name='h', param_value=h, score_rmse=score)
-            if best is None or candidate.score_rmse < best.score_rmse:
-                best = candidate
+            cand = SelectionResult(kernel_name, 'h', float(h), score)
+            if best is None or cand.score_rmse < best.score_rmse:
+                best = cand
     if best is None:
         raise RuntimeError('no candidates provided')
     return best
 
 
-def select_variable_window(x: FloatArray, y: FloatArray, ks: list[int], kernels: list[str]) -> SelectionResult:
+def select_variable_window(
+    x: FloatArray, y: FloatArray, ks: list[int], kernels: list[str]
+) -> SelectionResult:
     best: SelectionResult | None = None
     for kernel_name in kernels:
         for k in ks:
             score = loo_score_variable(x, y, k, kernel_name)
-            candidate = SelectionResult(kernel_name=kernel_name, param_name='k', param_value=float(k), score_rmse=score)
-            if best is None or candidate.score_rmse < best.score_rmse:
-                best = candidate
+            cand = SelectionResult(kernel_name, 'k', float(k), score)
+            if best is None or cand.score_rmse < best.score_rmse:
+                best = cand
+    if best is None:
+        raise RuntimeError('no candidates provided')
+    return best
+
+
+def select_lowess(
+    x: FloatArray, y: FloatArray, ks: list[int], kernels: list[str]
+) -> SelectionResult:
+    best: SelectionResult | None = None
+    for kernel_name in kernels:
+        for k in ks:
+            score = loo_score_lowess(x, y, k, kernel_name)
+            cand = SelectionResult(kernel_name, 'k', float(k), score)
+            if best is None or cand.score_rmse < best.score_rmse:
+                best = cand
     if best is None:
         raise RuntimeError('no candidates provided')
     return best

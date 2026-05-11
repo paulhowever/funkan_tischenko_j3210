@@ -8,12 +8,13 @@ from case_6.types import FloatArray
 
 
 def _safe_weighted_average(weights: FloatArray, y_train: FloatArray) -> FloatArray:
-    weighted_sum = weights @ y_train
-    weight_total = np.sum(weights, axis=1)
-    fallback = np.full(weights.shape[0], np.mean(y_train), dtype=np.float64)
-    mask = weight_total > 1e-12
-    fallback[mask] = weighted_sum[mask] / weight_total[mask]
-    return fallback.astype(np.float64)
+    """Weighted mean per row; falls back to mean(y_train) for empty windows."""
+    numer = weights @ y_train
+    denom = np.sum(weights, axis=1)
+    out = np.full(weights.shape[0], float(np.mean(y_train)), dtype=np.float64)
+    mask = denom > 1e-12
+    out[mask] = numer[mask] / denom[mask]
+    return out
 
 
 def nw_predict_fixed(
