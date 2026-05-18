@@ -190,13 +190,19 @@ write_csv(TAB / "linear_basis_comparison.csv",
 
 best_linear = min(best_models, key=lambda d: d["te_rmse"])
 
-plt.figure()
+plt.figure(figsize=(6.4, 4.2))
 xs = np.arange(len(basis_makers))
-plt.bar(xs, [min(rmse_curves[n]) for n in basis_makers],
-        color=["#4C78A8", "#F58518", "#54A24B"])
+vals = [min(rmse_curves[n]) for n in basis_makers]
+bars = plt.bar(xs, vals, color=["#4C78A8", "#F58518", "#54A24B"], width=0.55)
 plt.xticks(xs, list(basis_makers.keys()), rotation=10)
-plt.ylabel("min test RMSE")
-plt.title("Кейс 4: сравнение базисов по лучшему test RMSE")
+plt.ylabel("min test RMSE (log scale)")
+plt.yscale("log")
+for b, v in zip(bars, vals):
+    plt.text(b.get_x() + b.get_width() / 2, v * 1.07, f"{v:.3f}",
+             ha="center", va="bottom", fontsize=10)
+plt.title("Кейс 4: лучший test RMSE по базисам (log-шкала)")
+plt.grid(axis="y", which="both", linestyle=":", alpha=0.5)
+plt.tight_layout()
 save(FIG / "basis_comparison_rmse.png")
 
 plt.figure()
