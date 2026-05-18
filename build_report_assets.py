@@ -283,6 +283,164 @@ write_csv(TAB / "linearity_check.csv",
           [["L(phi1+phi2) vs L(phi1)+L(phi2)", round(lhs, 6), round(rhs, 6), round(abs(lhs - rhs), 9)]])
 
 # ---------------------------------------------------------------------------
+# Case 4 / extra item 2(b): Gram matrix of trigonometric basis
+# Verify <phi_k, phi_l> ≈ delta_{kl} numerically.
+# Trig basis here is unnormalised, so off-diagonals are 0 and diagonals
+# are 1 (for the constant) and 1/2 (for sin/cos), i.e. block-diagonal.
+# After L2-normalisation (1/sqrt(<phi,phi>)) diagonals all become 1.
+# ---------------------------------------------------------------------------
+print("[case 4] gram matrix for trigonometric basis")
+m_gram = 7
+trig_basis = trigonometric_basis(m_gram)
+G_raw = np.zeros((m_gram, m_gram))
+for i, fi in enumerate(trig_basis):
+    for j, fj in enumerate(trig_basis):
+        G_raw[i, j] = float(np.trapezoid(fi(t) * fj(t), t))
+
+# Normalised version: phi_k / sqrt(<phi_k, phi_k>)
+norms = np.sqrt(np.diag(G_raw))
+G_norm = G_raw / np.outer(norms, norms)
+
+fig, axes = plt.subplots(1, 2, figsize=(11, 4.6))
+im0 = axes[0].imshow(G_raw, cmap="RdBu_r", vmin=-1, vmax=1)
+axes[0].set_title(r"Грам $\langle\varphi_k,\varphi_\ell\rangle$ (без нормировки)")
+for i in range(m_gram):
+    for j in range(m_gram):
+        axes[0].text(j, i, f"{G_raw[i,j]:.2f}",
+                     ha="center", va="center", fontsize=8,
+                     color="black" if abs(G_raw[i, j]) < 0.5 else "white")
+plt.colorbar(im0, ax=axes[0], fraction=0.046)
+
+im1 = axes[1].imshow(G_norm, cmap="RdBu_r", vmin=-1, vmax=1)
+axes[1].set_title(r"После $L_2$-нормировки: $\approx I$")
+for i in range(m_gram):
+    for j in range(m_gram):
+        axes[1].text(j, i, f"{G_norm[i,j]:.2f}",
+                     ha="center", va="center", fontsize=8,
+                     color="black" if abs(G_norm[i, j]) < 0.5 else "white")
+plt.colorbar(im1, ax=axes[1], fraction=0.046)
+plt.suptitle("Кейс 4: матрица Грама тригонометрического базиса, m=7", y=1.02)
+save(FIG / "gram_matrix_trig.png")
+
+write_csv(TAB / "gram_matrix_trig.csv",
+          [f"phi_{i}" for i in range(m_gram)],
+          [[round(v, 5) for v in row] for row in G_norm])
+
+# Off-diagonal max: numerical sanity for orthogonality
+gram_offdiag_max = float(np.max(np.abs(G_norm - np.eye(m_gram))))
+print(f"  max |off-diagonal| after normalisation: {gram_offdiag_max:.2e}")
+
+# ---------------------------------------------------------------------------
+# Case 4 / extra item 5(c): coefficient stability via bootstrap
+# Resample training set 50 times, refit OLS and ridge for each basis,
+# report std(beta_k) per coordinate.
+# ---------------------------------------------------------------------------
+print("[case 4] bootstrap stability of coefficients")
+n_boot = 50
+m_stab = best_linear["m"]
+stab_rows = []
+stab_curves = {}
+for name, maker in basis_makers.items():
+    basis = maker(m_stab)
+    Ztr_full = feature_matrix(x_train_fn, basis)
+    coef_ols = np.zeros((n_boot, m_stab + 1))
+    coef_rdg = np.zeros((n_boot, m_stab + 1))
+    rng_boot = np.random.default_rng(2026)
+    for b_iter in range(n_boot):
+        idx = rng_boot.integers(0, Ztr_full.shape[0], Ztr_full.shape[0])
+        Zb, yb = Ztr_full[idx], y_train[idx]
+        coef_ols[b_iter] = fit_ridge(Zb, yb, lam=0.0)
+        coef_rdg[b_iter] = fit_ridge(Zb, yb, lam=0.1)
+    sd_ols = coef_ols.std(axis=0)
+    sd_rdg = coef_rdg.std(axis=0)
+    stab_curves[name] = (sd_ols, sd_rdg)
+    for k in range(1, m_stab + 1):
+        stab_rows.append([name, k, round(float(sd_ols[k]), 5), round(float(sd_rdg[k]), 5),
+                          round(float(sd_ols[k] / max(sd_rdg[k], 1e-12)), 3)])
+
+write_csv(TAB / "coefficient_stability.csv",
+          ["basis", "k", "sd_ols", "sd_ridge_0.1", "ratio_ols_over_ridge"], stab_rows)
+
+fig, axes = plt.subplots(1, 3, figsize=(13, 4), sharey=True)
+for ax, (name, (sd_o, sd_r)) in zip(axes, stab_curves.items()):
+    ks = np.arange(1, m_stab + 1)
+    ax.bar(ks - 0.18, sd_o[1:], width=0.36, label="OLS", color="#4C78A8")
+    ax.bar(ks + 0.18, sd_r[1:], width=0.36, label=r"ridge, $\lambda=0.1$", color="#F58518")
+    ax.set_title(name); ax.set_xlabel("k"); ax.set_yscale("log")
+    ax.grid(axis="y", which="both", linestyle=":", alpha=0.5)
+axes[0].set_ylabel(r"$\sigma(\hat\beta_k)$ по бутстрапу (log)")
+axes[-1].legend(loc="upper right", fontsize=9)
+plt.suptitle(r"Кейс 4: устойчивость $\hat\beta_k$ к ресэмплингу (50 бутстрапов)", y=1.03)
+save(FIG / "coefficient_stability.png")
+
+# ---------------------------------------------------------------------------
+# Case 4 / extra item 8: robustness to noise std and grid resolution
+# ---------------------------------------------------------------------------
+print("[case 4] noise and grid sensitivity sweeps")
+noise_levels = [0.01, 0.05, 0.10, 0.30, 1.00]
+grid_sizes = [40, 80, 160, 320, 640]
+m_sweep = m_stab
+
+noise_rows = []
+noise_curves = {n: [] for n in basis_makers}
+for sigma_eta in noise_levels:
+    rng_n = np.random.default_rng(13)
+    y_n = y_true + rng_n.normal(0.0, sigma_eta, size=n_samples)
+    yn_tr = y_n[idx_train]; yn_te = y_n[idx_test]
+    for name, maker in basis_makers.items():
+        basis = maker(m_sweep)
+        Ztr_n = feature_matrix(x_train_fn, basis)
+        Zte_n = feature_matrix(x_test_fn, basis)
+        beta_n = fit_ridge(Ztr_n, yn_tr, lam=0.01)
+        rmse_n = rmse(yn_te, predict(Zte_n, beta_n))
+        noise_curves[name].append(rmse_n)
+        noise_rows.append([name, sigma_eta, round(rmse_n, 5)])
+write_csv(TAB / "noise_sensitivity.csv",
+          ["basis", "sigma_eta", "test_rmse"], noise_rows)
+
+plt.figure(figsize=(7.5, 4.5))
+for name in basis_makers:
+    plt.plot(noise_levels, noise_curves[name], marker="o", label=name)
+plt.xscale("log"); plt.yscale("log")
+plt.xlabel(r"$\sigma_\eta$ (шум отклика)"); plt.ylabel("test RMSE")
+plt.title(r"Кейс 4: устойчивость линейной модели к шуму отклика, $m=" + str(m_sweep) + "$")
+plt.legend()
+save(FIG / "noise_sensitivity.png")
+
+grid_rows = []
+grid_curves = {n: [] for n in basis_makers}
+for N_grid in grid_sizes:
+    t_g = np.linspace(0.0, 1.0, N_grid)
+    # resample functions on coarser grid via linear interpolation
+    x_train_g = np.array([np.interp(t_g, t, row) for row in x_train_fn])
+    x_test_g = np.array([np.interp(t_g, t, row) for row in x_test_fn])
+    for name, maker in basis_makers.items():
+        basis = maker(m_sweep)
+        Ztr_g = np.array([
+            [float(np.trapezoid(x_train_g[i] * fk(t_g), t_g)) for fk in basis]
+            for i in range(x_train_g.shape[0])
+        ])
+        Zte_g = np.array([
+            [float(np.trapezoid(x_test_g[i] * fk(t_g), t_g)) for fk in basis]
+            for i in range(x_test_g.shape[0])
+        ])
+        beta_g = fit_ridge(Ztr_g, y_train, lam=0.01)
+        rmse_g = rmse(y_test, predict(Zte_g, beta_g))
+        grid_curves[name].append(rmse_g)
+        grid_rows.append([name, N_grid, round(rmse_g, 5)])
+write_csv(TAB / "grid_sensitivity.csv",
+          ["basis", "N_grid", "test_rmse"], grid_rows)
+
+plt.figure(figsize=(7.5, 4.5))
+for name in basis_makers:
+    plt.plot(grid_sizes, grid_curves[name], marker="s", label=name)
+plt.xscale("log")
+plt.xlabel("N (число узлов сетки)"); plt.ylabel("test RMSE")
+plt.title(r"Кейс 4: устойчивость к разрешению сетки, $m=" + str(m_sweep) + "$")
+plt.legend()
+save(FIG / "grid_sensitivity.png")
+
+# ---------------------------------------------------------------------------
 # Case 6: metric methods
 # ---------------------------------------------------------------------------
 print("[case 6] generating metric-method figures")
